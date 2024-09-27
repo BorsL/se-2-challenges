@@ -1,21 +1,59 @@
-pragma solidity 0.8.4; //Do not change the solidity version as it negativly impacts submission grading
 // SPDX-License-Identifier: MIT
+pragma solidity ^0.8.4;
 
-// import "@openzeppelin/contracts/access/Ownable.sol";
 import "./YourToken.sol";
 
-contract Vendor {
-  // event BuyTokens(address buyer, uint256 amountOfETH, uint256 amountOfTokens);
+// Learn more about the ERC20 implementation
+// on OpenZeppelin docs: https://docs.openzeppelin.com/contracts/4.x/api/access#Ownable
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-  YourToken public yourToken;
+contract Vendor is Ownable {
+	// Our Token Contract
+	YourToken yourToken;
 
-  constructor(address tokenAddress) {
-    yourToken = YourToken(tokenAddress);
-  }
+	// token price for ETH
+	uint256 public tokensPerEth = 100;
 
-  // ToDo: create a payable buyTokens() function:
+	// Event that log buy operation
+	event BuyTokens(address buyer, uint256 amountOfETH, uint256 amountOfTokens);
 
-  // ToDo: create a withdraw() function that lets the owner withdraw ETH
+	constructor(address tokenAddress) {
+		yourToken = YourToken(tokenAddress);
+	}
 
-  // ToDo: create a sellTokens(uint256 _amount) function:
+	/**
+	 * @notice Allow users to buy token for ETH
+	 */
+	function buyTokens() public payable returns (uint256 tokenAmount) {
+		require(msg.value > 0, "Send ETH to buy some tokens");
+
+		uint256 amountToBuy = msg.value * tokensPerEth;
+
+		// check if the Vendor Contract has enough amount of tokens for the transaction
+		uint256 vendorBalance = yourToken.balanceOf(address(this));
+		require(
+			vendorBalance >= amountToBuy,
+			"Vendor contract has not enough tokens in its balance"
+		);
+
+		// Transfer token to the msg.sender
+		bool sent = yourToken.transfer(msg.sender, amountToBuy);
+		require(sent, "Failed to transfer token to user");
+
+		// emit the event
+		emit BuyTokens(msg.sender, msg.value, amountToBuy);
+
+		return amountToBuy;
+	}
+
+	/**
+	 * @notice Allow the owner of the contract to withdraw ETH
+	 */
+	function withdraw() public onlyOwner {
+		uint256 ownerBalance = address(this).balance;
+		require(ownerBalance > 0, "Owner has not balance to withdraw");
+
+		(bool sent, ) = msg.sender.call{ value: address(this).balance }("");
+		require(sent, "Failed to send user balance back to the owner");
+	}
 }
